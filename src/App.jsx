@@ -8,7 +8,6 @@ import EventsSection from './components/EventsSection';
 import VenueMapSection from './components/VenueMapSection';
 import CountdownSection from './components/CountdownSection';
 import NoteSection from './components/NoteSection';
-import PhotoGalleryHub from './components/PhotoGalleryHub';
 import BlessingsFinale from './components/BlessingsFinale';
 import MusicPlayer from './components/MusicPlayer';
 import CustomizeDrawer from './components/CustomizeDrawer';
@@ -532,14 +531,6 @@ export default function App() {
                   note={data.note}
                   coupleTitle={coupleTitle}
                   photos={data.photos}
-                />
-
-                {/* Live Guest Wedding Photo Gallery Hub with 3D Concave Carousel & Royal Squad Challenge */}
-                <PhotoGalleryHub
-                  schema={data}
-                  brideName={brideName}
-                  groomName={groomName}
-                  squads={data.squads}
                 />
 
                 {/* Blessings, Finale Wax Seal, and Replay Button */}

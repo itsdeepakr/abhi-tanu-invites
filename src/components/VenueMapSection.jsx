@@ -2,10 +2,10 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { MapPin, Navigation, Copy, Check, ExternalLink } from 'lucide-react';
 
-const VENUE_NAME = "Nandana Convention Hall";
-const VENUE_ADDRESS = "Ullal Main Rd, Jnananjyothinagar, Jnana Jyothi Nagar, Jnana Ganga Nagar, Bengaluru, Karnataka 560056";
-const MAPS_APP_URL = "https://maps.google.com/?cid=6702153646892657188";
-const EMBED_MAP_SRC = "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3888.3129312769784!2d77.49158253488768!3d12.951816700000013!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3bae3f802b534eb9%3A0x5d02d53b79202a24!2sNandana%20Convention%20hall!5e0!3m2!1sen!2sin!4v1793425563102!5m2!1sen!2sin";
+const VENUE_NAME = "\"The AMARA\" NANDI LINK GROUNDS";
+const VENUE_ADDRESS = "Panthar Palya, Nayandahalli, Mysore Road, Bengaluru, Karnataka 560039";
+const MAPS_APP_URL = "https://www.google.com/maps/search/?api=1&query=The+AMARA+Nandi+Link+Grounds+Panthar+Palya+Nayandahalli+Mysore+Road+Bengaluru+560039";
+const EMBED_MAP_SRC = "https://maps.google.com/maps?q=The+AMARA+Nandi+Link+Grounds+Nayandahalli+Mysore+Road+Bengaluru+560039&t=&z=15&ie=UTF8&iwloc=&output=embed";
 
 export default function VenueMapSection() {
   const [copied, setCopied] = useState(false);
@@ -54,7 +54,7 @@ export default function VenueMapSection() {
 
         {/* Subtitle clarifying ceremonies */}
         <p className="text-xs sm:text-sm text-[#FFE58F] font-serif font-medium mt-1.5 uppercase tracking-wider">
-          Venue for The Reception (Sunday, 15 Nov) & Wedding Muhurtham (Monday, 16 Nov)
+          Venue for The Reception (Sunday, 29 Nov 2026) & Wedding Muhurtham (Monday, 30 Nov 2026)
         </p>
 
         {/* Address Card */}
@@ -80,7 +80,7 @@ export default function VenueMapSection() {
             allowFullScreen=""
             loading="lazy"
             referrerPolicy="strict-origin-when-cross-origin"
-            title="Nandana Convention Hall Location Map"
+            title="The AMARA Nandi Link Grounds Location Map"
             className="w-full block"
           />
         </motion.div>
@@ -123,7 +123,7 @@ export default function VenueMapSection() {
 
         {/* Landmark & Parking Note */}
         <p className="mt-4 text-[11px] sm:text-xs text-[#F4D9A6]/75 font-serif">
-          Located along Ullal Main Road, Jnana Jyothi Nagar. Dedicated guest parking and drop-off zone available at the entrance.
+          Located along Mysore Road, Panthar Palya, Nayandahalli. Dedicated guest parking and drop-off zone available at the entrance.
         </p>
       </div>
 
