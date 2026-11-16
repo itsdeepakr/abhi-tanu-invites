@@ -35,9 +35,9 @@ export const DEFAULT_WEDDING_DATA = {
     start_time: "09:30",
   },
   photos: [
-    { src: "/photos/couple-1.jpg", objectPosition: "center 30%" },
-    { src: "/photos/couple-2.jpg", objectPosition: "center center" },
-    { src: "/photos/couple-3.jpg", objectPosition: "center center" },
+    { src: "/photos/hero_main_at.jpg?v=2", objectPosition: "center 30%" },
+    { src: "/photos/hero_back_at.jpg?v=2", objectPosition: "center center" },
+    { src: "/photos/hero_front_at.jpg?v=2", objectPosition: "center center" },
     { src: "/photos/abhishek_tanuja/photo-1.jpg" },
     { src: "/photos/abhishek_tanuja/photo-2.jpg" },
     { src: "/photos/abhishek_tanuja/photo-3.jpg" },

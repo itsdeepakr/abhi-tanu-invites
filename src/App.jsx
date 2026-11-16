@@ -16,33 +16,27 @@ import GuideHint from './components/GuideHint';
 import { ScrollProvider } from './context/ScrollContext';
 import { CoupleProvider } from './context/CoupleContext';
 
-const STORAGE_KEY = 'vyoma_wedding_invitation_data';
+const STORAGE_KEY = 'vyoma_wedding_invitation_data_v3';
 
 export default function App() {
   const [data, setData] = useState(() => {
     try {
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('vyoma_wedding_invitation_data');
+      }
       const params = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
       const hasInviteParam = params && (params.get('inviteId') || params.get('id'));
       if (!hasInviteParam) {
-        const saved = localStorage.getItem(STORAGE_KEY);
+        const saved = typeof window !== 'undefined' ? localStorage.getItem(STORAGE_KEY) : null;
         if (saved) {
           const parsed = JSON.parse(saved);
-          const validPhotos = Array.isArray(parsed.photos) ? parsed.photos.filter(p => p && p.src) : [];
-          if (validPhotos.length === 0) {
-            parsed.photos = DEFAULT_WEDDING_DATA.photos;
-          } else {
-            parsed.photos = validPhotos;
+          if (parsed && parsed.hero?.groom_name === DEFAULT_WEDDING_DATA.hero.groom_name) {
+            // Ensure photos always use latest framing if not user custom uploads
+            if (!parsed.photos || parsed.photos.some(p => p?.src?.includes('couple-') || p?.src?.includes('hero_'))) {
+              parsed.photos = DEFAULT_WEDDING_DATA.photos;
+            }
+            return parsed;
           }
-          if (!parsed.note?.photo && DEFAULT_WEDDING_DATA.note?.photo) {
-            parsed.note = { ...parsed.note, photo: DEFAULT_WEDDING_DATA.note.photo };
-          }
-          // Strip out any legacy Sangeeth entries from cached data
-          if (parsed.events?.items) {
-            parsed.events.items = parsed.events.items.filter(
-              (item) => !/sangeet/i.test(item.name || '')
-            );
-          }
-          return parsed;
         }
       }
     } catch (e) {
