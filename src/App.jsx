@@ -1,0 +1,572 @@
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { AnimatePresence, motion, MotionConfig } from 'framer-motion';
+import { DEFAULT_WEDDING_DATA, parseIsoDate } from './config/defaultWedding';
+import EnvelopeIntro from './components/EnvelopeIntro';
+import HeroSection from './components/HeroSection';
+import InvitationCard from './components/InvitationCard';
+import EventsSection from './components/EventsSection';
+import VenueMapSection from './components/VenueMapSection';
+import CountdownSection from './components/CountdownSection';
+import NoteSection from './components/NoteSection';
+import PhotoGalleryHub from './components/PhotoGalleryHub';
+import BlessingsFinale from './components/BlessingsFinale';
+import MusicPlayer from './components/MusicPlayer';
+import CustomizeDrawer from './components/CustomizeDrawer';
+import GuideHint from './components/GuideHint';
+import { ScrollProvider } from './context/ScrollContext';
+import { CoupleProvider } from './context/CoupleContext';
+
+const STORAGE_KEY = 'vyoma_wedding_invitation_data';
+
+export default function App() {
+  const [data, setData] = useState(() => {
+    try {
+      const params = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+      const hasInviteParam = params && (params.get('inviteId') || params.get('id'));
+      if (!hasInviteParam) {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          const validPhotos = Array.isArray(parsed.photos) ? parsed.photos.filter(p => p && p.src) : [];
+          if (validPhotos.length === 0) {
+            parsed.photos = DEFAULT_WEDDING_DATA.photos;
+          } else {
+            parsed.photos = validPhotos;
+          }
+          if (!parsed.note?.photo && DEFAULT_WEDDING_DATA.note?.photo) {
+            parsed.note = { ...parsed.note, photo: DEFAULT_WEDDING_DATA.note.photo };
+          }
+          // Strip out any legacy Sangeeth entries from cached data
+          if (parsed.events?.items) {
+            parsed.events.items = parsed.events.items.filter(
+              (item) => !/sangeet/i.test(item.name || '')
+            );
+          }
+          return parsed;
+        }
+      }
+    } catch (e) {
+      console.warn('Could not read saved wedding data:', e);
+    }
+    return DEFAULT_WEDDING_DATA;
+  });
+
+  const [phase, setPhase] = useState(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('edit') === '1' || params.get('customize') === '1') {
+        return 'open'; // skip envelope intro directly to canvas if in edit/customizer mode
+      }
+    } catch {}
+    return 'sealed';
+  });
+  const [drawerOpen, setDrawerOpen] = useState(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      return params.get('edit') === '1' || params.get('customize') === '1';
+    } catch {}
+    return false;
+  });
+  const [screenHeight, setScreenHeight] = useState(null);
+  const [musicPlaying, setMusicPlaying] = useState(false);
+
+  const scrollContainerRef = useRef(null);
+  const inviteId = typeof window !== 'undefined' ? (new URLSearchParams(window.location.search).get('inviteId') || new URLSearchParams(window.location.search).get('id')) : null;
+
+  // Dynamic API Hydration from ?inviteId= or ?id=
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const inviteId = params.get('inviteId') || params.get('id');
+      if (inviteId) {
+        fetch(`/api/invitations/${inviteId}`)
+          .then(res => res.json())
+          .then(apiData => {
+            if (apiData && apiData.hero) {
+              const mapped = {
+                ...DEFAULT_WEDDING_DATA,
+                theme: {
+                  ...DEFAULT_WEDDING_DATA.theme,
+                  ...(apiData.theme || {}),
+                  id: apiData.theme?.id || 'floral-luxe'
+                },
+                hero: {
+                  ...DEFAULT_WEDDING_DATA.hero,
+                  bride_name: apiData.hero.bride_name,
+                  groom_name: apiData.hero.groom_name,
+                  wedding_date: apiData.hero.wedding_date || apiData.countdown?.wedding_date,
+                  city: apiData.hero.city,
+                  venue: apiData.hero.venue
+                },
+                countdown: {
+                  wedding_date: apiData.countdown?.wedding_date || apiData.hero.wedding_date || '2027-02-18',
+                  start_time: apiData.countdown?.start_time || '09:45'
+                },
+                envelope: {
+                  monogram: apiData.monogram?.text || apiData.envelope?.monogram || 'V',
+                  hint: apiData.envelope?.hint || 'Tap to open invitation'
+                },
+                invitation: {
+                  ...DEFAULT_WEDDING_DATA.invitation,
+                  bride_full_name: apiData.invitation?.bride_full_name || apiData.hero.bride_name,
+                  bride_parents: apiData.invitation?.bride_parents || '',
+                  groom_full_name: apiData.invitation?.groom_full_name || apiData.hero.groom_name,
+                  groom_parents: apiData.invitation?.groom_parents || '',
+                  venue: apiData.invitation?.venue || apiData.venue?.name,
+                  city: apiData.invitation?.city || apiData.hero.city,
+                  time: apiData.invitation?.time || '9:45 AM onwards',
+                  note: apiData.invitation?.note || ''
+                },
+                events: apiData.events?.items ? apiData.events : {
+                  heading: 'The Celebrations',
+                  items: apiData.events || DEFAULT_WEDDING_DATA.events.items
+                },
+                details: {
+                  ...DEFAULT_WEDDING_DATA.details,
+                  where: apiData.venue?.name ? `${apiData.venue.name}\n${apiData.venue.address || ''}` : DEFAULT_WEDDING_DATA.details.where,
+                  address: apiData.venue?.address || DEFAULT_WEDDING_DATA.details.address,
+                  map_url: apiData.venue?.map_url || '#venue-map'
+                },
+                venue: apiData.venue || DEFAULT_WEDDING_DATA.venue,
+                photos: Array.isArray(apiData.photos)
+                  ? apiData.photos.filter(p => p && p.src)
+                  : (apiData.photos?.gallery?.map(src => ({ src })).filter(p => p && p.src) || []),
+                squads: apiData.squads || {
+                  bride: { title: `Team ${apiData.hero.bride_name.split(' ')[0]}` },
+                  groom: { title: `Team ${apiData.hero.groom_name.split(' ')[0]}` }
+                },
+                note: apiData.note || {
+                  heading: 'A Note From Us',
+                  message: apiData.invitation?.note || apiData.notes?.loveStory || apiData.notes?.welcomeMessage || "We can't wait to celebrate with you.",
+                  signoff: 'With love,',
+                  photo: null,
+                }
+              };
+              if (apiData.hero?.bride_name && apiData.hero?.groom_name) {
+                document.title = `${apiData.hero.bride_name} & ${apiData.hero.groom_name} — Wedding Celebration | VYOMA`;
+              }
+              setData(mapped);
+            }
+          })
+          .catch(err => console.warn('Could not hydrate invitation from API:', err));
+      }
+    } catch (e) {
+      console.warn('Hydration query parsing error:', e);
+    }
+  }, []);
+
+  // Sync to localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    } catch (e) {
+      console.warn('Could not save wedding data:', e);
+    }
+  }, [data]);
+
+  // Viewport height tracking for the scroll container
+  useEffect(() => {
+    let lastH = 0;
+    const measure = () => {
+      const el = scrollContainerRef.current;
+      const h = el ? el.clientHeight : window.innerHeight;
+      if (Math.abs(h - lastH) < 8) return;
+      lastH = h;
+      setScreenHeight(h);
+      document.documentElement.style.setProperty('--fv-screen', `${h}px`);
+      document.documentElement.style.setProperty('--fv-stage', `${h}px`);
+      document.documentElement.style.setProperty('--fv-tall', `${h}px`);
+    };
+
+    measure();
+    const ro = new ResizeObserver(measure);
+    if (scrollContainerRef.current) ro.observe(scrollContainerRef.current);
+    window.addEventListener('resize', measure);
+
+    return () => {
+      ro.disconnect();
+      window.removeEventListener('resize', measure);
+    };
+  }, []);
+
+  const [wasSkipped, setWasSkipped] = useState(false);
+
+  // Envelope opening sequence (5.6s timer aligned with CSS bloom climax)
+  useEffect(() => {
+    if (phase === 'opening') {
+      const timer = setTimeout(() => {
+        setPhase('open');
+      }, 5600);
+      return () => clearTimeout(timer);
+    }
+    if (phase === 'sealing') {
+      const timer = setTimeout(() => {
+        setPhase('sealed');
+      }, 2400);
+      return () => clearTimeout(timer);
+    }
+  }, [phase]);
+
+  // Natural human-like auto-scroll after 3.5 seconds of stillness on the open invitation
+  useEffect(() => {
+    if (phase !== 'open') return;
+
+    const container = scrollContainerRef.current;
+    if (!container) return;
+
+    let animId = null;
+    let autoScrollCancelled = false;
+
+    // Detect actual manual user scrolling (> 20px displacement)
+    const onManualScroll = () => {
+      if (container.scrollTop > 20) {
+        autoScrollCancelled = true;
+      }
+    };
+
+    let touchStartY = null;
+    const onTouchStart = (e) => {
+      if (e.touches && e.touches[0]) {
+        touchStartY = e.touches[0].clientY;
+      }
+    };
+
+    const onTouchMove = (e) => {
+      if (touchStartY !== null && e.touches && e.touches[0]) {
+        const deltaY = Math.abs(e.touches[0].clientY - touchStartY);
+        if (deltaY > 15) {
+          autoScrollCancelled = true;
+          if (animId) cancelAnimationFrame(animId);
+        }
+      }
+    };
+
+    const onWheel = (e) => {
+      if (Math.abs(e.deltaY) > 5) {
+        autoScrollCancelled = true;
+        if (animId) cancelAnimationFrame(animId);
+      }
+    };
+
+    window.addEventListener('wheel', onWheel, { passive: true });
+    window.addEventListener('touchstart', onTouchStart, { passive: true });
+    window.addEventListener('touchmove', onTouchMove, { passive: true });
+    container.addEventListener('scroll', onManualScroll, { passive: true });
+
+    // After 3.5s of stillness on the hero: initiate human-like smooth glide
+    const timer = setTimeout(() => {
+      if (autoScrollCancelled || container.scrollTop > 20) {
+        return;
+      }
+
+      const startY = container.scrollTop;
+      // Scroll smoothly to reveal the royal invitation card below the hero
+      const targetY = Math.min(window.innerHeight * 0.72, 540);
+      const distance = targetY - startY;
+      if (distance <= 0) return;
+
+      const duration = 2200; // 2.2s natural thumb-flick momentum
+      const startTime = performance.now();
+
+      const interrupt = () => {
+        autoScrollCancelled = true;
+        if (animId) cancelAnimationFrame(animId);
+        cleanupInterrupt();
+      };
+
+      const cleanupInterrupt = () => {
+        window.removeEventListener('touchstart', interrupt);
+        window.removeEventListener('wheel', interrupt);
+      };
+
+      window.addEventListener('touchstart', interrupt, { passive: true });
+      window.addEventListener('wheel', interrupt, { passive: true });
+
+      // Natural thumb-swipe cubic bezier curve
+      const easeInOutCubic = (t) =>
+        t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+
+      const step = (now) => {
+        if (autoScrollCancelled) {
+          cleanupInterrupt();
+          return;
+        }
+
+        const elapsed = now - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+        const eased = easeInOutCubic(progress);
+
+        container.scrollTop = startY + distance * eased;
+
+        if (progress < 1 && !autoScrollCancelled) {
+          animId = requestAnimationFrame(step);
+        } else {
+          cleanupInterrupt();
+        }
+      };
+
+      animId = requestAnimationFrame(step);
+    }, 3500);
+
+    return () => {
+      clearTimeout(timer);
+      autoScrollCancelled = true;
+      if (animId) cancelAnimationFrame(animId);
+      window.removeEventListener('wheel', onWheel);
+      window.removeEventListener('touchstart', onTouchStart);
+      window.removeEventListener('touchmove', onTouchMove);
+      container.removeEventListener('scroll', onManualScroll);
+    };
+  }, [phase]);
+
+  // Preload photos and textures during opening with a gentle delay to preserve GPU bandwidth
+  useEffect(() => {
+    if (phase === 'opening') {
+      const timer = setTimeout(() => {
+        const urls = [
+          ...(data.photos || []).map((p) => p.src),
+          '/templates/forever/paper/card.webp',
+          '/templates/forever/paper/grain.webp',
+          '/templates/forever/paper/foil-deep.webp',
+          '/templates/forever/paper/foil-light.webp',
+          '/templates/forever/paper/note.webp',
+          '/templates/forever/paper/sprig-fern.webp',
+          '/templates/forever/paper/sprig-rose.webp',
+          '/templates/forever/paper/tape-gold.webp',
+          '/templates/forever/desi/silk.webp',
+          '/templates/forever/desi/zari.webp',
+          '/templates/forever/desi/bangles.webp',
+          '/templates/forever/desi/silk-berry.webp',
+          '/templates/forever/desi/mandala-half.webp',
+          '/templates/forever/desi/rangoli.webp',
+          '/templates/heritage-scroll-assamese/our_story_frame.webp',
+          '/templates/heritage-scroll-assamese/our_story_frame_shadow_v2.webp',
+        ];
+        urls.forEach((url) => {
+          if (!url) return;
+          const img = new Image();
+          img.decoding = 'async';
+          img.src = url;
+        });
+      }, 1500);
+      return () => clearTimeout(timer);
+    }
+  }, [phase, data.photos]);
+
+  const handleOpen = () => {
+    if (phase === 'sealed') {
+      setWasSkipped(false);
+      setPhase('opening');
+      setMusicPlaying(true);
+    }
+  };
+
+  const handleSkip = () => {
+    setWasSkipped(true);
+    setPhase('open');
+    setMusicPlaying(true);
+  };
+
+  const handleMusicToggle = useCallback((explicitState) => {
+    setMusicPlaying((prev) => (typeof explicitState === 'boolean' ? explicitState : !prev));
+  }, []);
+
+  const handleReplay = () => {
+    // Play warm tactile wax seal sound
+    try {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (AudioCtx) {
+        const ctx = new AudioCtx();
+        const now = ctx.currentTime;
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(170, now + 1.1);
+        osc.frequency.exponentialRampToValueAtTime(50, now + 1.45);
+        gain.gain.setValueAtTime(0.32, now + 1.1);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 1.48);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now + 1.1);
+        osc.stop(now + 1.5);
+      }
+    } catch (e) { }
+
+    if (navigator.vibrate) {
+      setTimeout(() => {
+        try { navigator.vibrate([60, 30, 80]); } catch (e) { }
+      }, 1100);
+    }
+
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTo({ top: 0, behavior: 'instant' });
+    }
+    setPhase('sealing');
+  };
+
+  const handleReset = () => {
+    if (window.confirm('Reset all details to the default wedding template?')) {
+      setData(DEFAULT_WEDDING_DATA);
+      try {
+        localStorage.removeItem(STORAGE_KEY);
+      } catch (e) { }
+    }
+  };
+
+  const weddingDateObj = parseIsoDate(data.countdown?.wedding_date);
+  const brideName = data.hero?.bride_name || 'Bride';
+  const groomName = data.hero?.groom_name || 'Groom';
+  const coupleTitle = `${brideName} & ${groomName}`;
+
+  const FONT_MAP = {
+    playfair: '"Playfair Display", Georgia, serif',
+    greatvibes: '"Great Vibes", "Allura", cursive',
+    cinzel: '"Cinzel", "Playfair Display", Georgia, serif',
+    vandella: '"Vandella", "Great Vibes", cursive',
+    bodoni: '"Bodoni Moda", "Playfair Display", serif',
+  };
+  const coupleFontKey = data.theme?.couple_font || 'playfair';
+  const namesFontFamily = FONT_MAP[coupleFontKey] || FONT_MAP.playfair;
+
+  return (
+    <MotionConfig reducedMotion="user">
+      <CoupleProvider
+        bride={brideName}
+        groom={groomName}
+        brideParents={data.invitation?.bride_parents}
+        groomParents={data.invitation?.groom_parents}
+      >
+        <div className="flex flex-col h-[100dvh] w-full overflow-hidden bg-[#68183C]">
+        {/* Floating Customizer Drawer */}
+        <CustomizeDrawer
+          data={data}
+          onChange={setData}
+          onReset={handleReset}
+          isOpen={drawerOpen}
+          onToggle={() => setDrawerOpen(!drawerOpen)}
+          inviteId={inviteId}
+        />
+
+        {/* Ambient Wedding Music Player */}
+        <MusicPlayer
+          src={data.audio_url || '/audio/wedding_music.mp3'}
+          isPlaying={musicPlaying}
+          onTogglePlay={handleMusicToggle}
+        />
+
+        {/* Designated scroll container matching ScrollVite's #app-scroll */}
+        <main
+          id="app-scroll"
+          ref={scrollContainerRef}
+          style={{ position: 'relative', overscrollBehaviorY: 'none', WebkitOverflowScrolling: 'touch' }}
+          className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden relative"
+        >
+          <div
+            className={`fv-root fv--forever ${data.theme?.id === 'floral-luxe' ? 'theme-floral-luxe' : 'theme-royal-heritage'}`}
+            data-theme={data.theme?.id || 'royal-heritage'}
+            data-phase={phase}
+            style={{ '--fv-names': namesFontFamily }}
+          >
+            {/* Sealed Envelope Opening Sequence */}
+            <AnimatePresence>
+              {phase !== 'open' && (
+                <EnvelopeIntro
+                  key="intro"
+                  phase={phase}
+                  onOpen={handleOpen}
+                  onSkip={handleSkip}
+                  monogram={data.envelope?.monogram}
+                  hint={phase === 'sealing' ? 'Sealing the royal invitation...' : data.envelope?.hint}
+                  brideName={brideName}
+                  groomName={groomName}
+                />
+              )}
+            </AnimatePresence>
+
+            {/* Seamless Persistent Golden Light Bridge (Guarantees zero-flash handoff on mobile) */}
+            <div
+              className={`fv-fixed-bridge ${phase === 'open' ? 'fv-fixed-bridge--fadeout' : ''}`}
+              aria-hidden="true"
+            />
+
+            {/* Open State: The Royal Wedding Invitation Page */}
+            {phase === 'open' && (
+              <>
+                <ScrollProvider
+                  containerRef={scrollContainerRef}
+                  style={{
+                    '--fv-names': namesFontFamily,
+                    ...(screenHeight
+                      ? {
+                        '--fv-screen': `${screenHeight}px`,
+                        '--fv-stage': `${screenHeight}px`,
+                        '--fv-tall': `${screenHeight}px`,
+                      }
+                      : {}),
+                  }}
+                >
+                  {/* Hero & First Section */}
+                  <div className="fv-first">
+                    <div className="fv-first-bg" aria-hidden="true" />
+                  <HeroSection
+                    brideName={brideName}
+                    groomName={groomName}
+                    kicker={data.hero?.kicker}
+                    dateObj={weddingDateObj}
+                    photos={data.photos}
+                  />
+                  <InvitationCard
+                    schema={data}
+                    dateObj={weddingDateObj}
+                  />
+                </div>
+
+                {/* Celebrations / Functions */}
+                <EventsSection events={data.events} />
+
+                {/* Embedded Venue Map & Driving Directions for Reception & Muhurtham */}
+                <VenueMapSection />
+
+                {/* Live Wedding Countdown */}
+                <CountdownSection
+                  weddingDate={weddingDateObj}
+                  startTime={data.countdown?.start_time}
+                />
+
+                {/* Romantic Note from the Couple */}
+                <NoteSection
+                  note={data.note}
+                  coupleTitle={coupleTitle}
+                  photos={data.photos}
+                />
+
+                {/* Live Guest Wedding Photo Gallery Hub with 3D Concave Carousel & Royal Squad Challenge */}
+                <PhotoGalleryHub
+                  schema={data}
+                  brideName={brideName}
+                  groomName={groomName}
+                  squads={data.squads}
+                />
+
+                {/* Blessings, Finale Wax Seal, and Replay Button */}
+                <BlessingsFinale
+                  schema={data}
+                  onReplay={handleReplay}
+                />
+
+                {/* Continuous scroll guide hint prompting exploration */}
+                <GuideHint
+                  kind="scroll"
+                  text="Scroll down to explore"
+                  scrollRef={scrollContainerRef}
+                />
+              </ScrollProvider>
+            </>
+          )}
+          </div>
+        </main>
+      </div>
+      </CoupleProvider>
+    </MotionConfig>
+  );
+}
