@@ -60,10 +60,11 @@ export default function ConcaveCarousel({
     onChangeActive?.(next);
   }, [current, total, onChangeActive]);
 
-  // Gentle auto-drift when not hovered or dragged
+  // Gentle auto-drift when not hovered or dragged, pausing when page is hidden
   useEffect(() => {
     if (!autoDrift || isHovered || isDragging || total <= 1) return;
     const timer = setInterval(() => {
+      if (typeof document !== 'undefined' && document.hidden) return;
       handleNext();
     }, driftIntervalMs);
     return () => clearInterval(timer);

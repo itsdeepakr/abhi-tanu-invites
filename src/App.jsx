@@ -412,6 +412,9 @@ export default function App() {
         gain.connect(ctx.destination);
         osc.start(now + 1.1);
         osc.stop(now + 1.5);
+        setTimeout(() => {
+          try { ctx.close(); } catch (e) { }
+        }, 2000);
       }
     } catch (e) { }
 

@@ -19,10 +19,12 @@ export function CoupleProvider({
   const [isFlipped, setIsFlipped] = useState(false);
 
   useEffect(() => {
-    // Alternates order precisely every 2 seconds so neither feels superior or inferior
+    // Only alternate when page is actively viewed, pausing when hidden to eliminate background memory/battery drain
     const timer = setInterval(() => {
-      setIsFlipped((prev) => !prev);
-    }, 2000);
+      if (typeof document !== 'undefined' && !document.hidden) {
+        setIsFlipped((prev) => !prev);
+      }
+    }, 12000);
 
     return () => clearInterval(timer);
   }, []);
