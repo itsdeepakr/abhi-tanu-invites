@@ -5,9 +5,10 @@ import React, { useRef, useState, useEffect, useCallback } from 'react';
  * - Autoplays on user gesture or envelope opening
  * - Bulletproof synchronization without pause/play oscillation
  * - High fidelity HTML5 audio with zero glitching or buffer underrun
+ * - Background play resilience & auto-recovery from audio session interruptions
  */
 export default function MusicPlayer({
-  src = '/audio/kannada_wedding_instrumental.mp3',
+  src = '/audio/kannada_neenaade_naa.mp3',
   positionClassName = 'bottom-5 right-5 md:bottom-6 md:right-6',
   isPlaying: parentIsPlaying,
   onTogglePlay,
@@ -15,6 +16,7 @@ export default function MusicPlayer({
   const audioRef = useRef(null);
   const buttonRef = useRef(null);
   const [isPlaying, setIsPlaying] = useState(false);
+  const wasPlayingBeforeHidden = useRef(false);
 
   // Keep callback reference updated without triggering effect re-runs
   const onToggleRef = useRef(onTogglePlay);
@@ -36,8 +38,10 @@ export default function MusicPlayer({
           onToggleRef.current?.(true);
         })
         .catch((err) => {
-          // Autoplay policy prevented playback until explicit gesture
-          console.debug('Autoplay waiting for user gesture:', err);
+          // Autoplay policy prevented playback until explicit gesture, or audio session interrupted
+          console.debug('Autoplay waiting for user gesture or audio interrupted:', err);
+          setIsPlaying(false);
+          onToggleRef.current?.(false);
         });
     }
   }, []);
@@ -95,6 +99,53 @@ export default function MusicPlayer({
     return cleanup;
   }, [startPlayback]);
 
+  // Background play resilience and Page Visibility synchronization
+  useEffect(() => {
+    const handleVisibility = () => {
+      const audio = audioRef.current;
+      if (!audio) return;
+
+      if (document.hidden) {
+        wasPlayingBeforeHidden.current = !audio.paused;
+      } else {
+        // Tab is visible again: sync UI state with actual audio hardware state
+        setIsPlaying(!audio.paused);
+        // If it was playing and mobile OS paused it during lock, resume seamlessly
+        if (wasPlayingBeforeHidden.current && audio.paused) {
+          startPlayback();
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => document.removeEventListener('visibilitychange', handleVisibility);
+  }, [startPlayback]);
+
+  // Error recovery handler for audio network or decode glitches
+  const handleError = useCallback((e) => {
+    console.warn('Audio player encountered a glitch, attempting recovery:', e);
+    setIsPlaying(false);
+    const audio = audioRef.current;
+    if (audio) {
+      try {
+        audio.load();
+      } catch (err) {
+        console.debug('Audio load recovery caught:', err);
+      }
+    }
+  }, []);
+
+  // Guarantee continuous looping even if browser native loop attribute drops
+  const handleEnded = useCallback(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    audio.currentTime = 0;
+    const playPromise = audio.play();
+    if (playPromise && typeof playPromise.then === 'function') {
+      playPromise.catch(() => {});
+    }
+  }, []);
+
   // Direct toggle on button click
   const togglePlay = (e) => {
     e.stopPropagation();
@@ -116,12 +167,18 @@ export default function MusicPlayer({
     <>
       <audio
         ref={audioRef}
-        src={src}
         loop
-        preload="auto"
+        playsInline
+        preload="none"
         onPlay={() => setIsPlaying(true)}
         onPause={() => setIsPlaying(false)}
-      />
+        onError={handleError}
+        onEnded={handleEnded}
+      >
+        <source src={src} type="audio/mpeg" />
+        <source src="/audio/kannada_neenaade_naa.mp3" type="audio/mpeg" />
+        <source src="/audio/wedding_music.mp3" type="audio/mpeg" />
+      </audio>
       <button
         ref={buttonRef}
         type="button"

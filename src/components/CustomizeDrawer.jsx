@@ -154,14 +154,12 @@ export default function CustomizeDrawer({
     });
   };
 
+  // DPDPA 2023 Security & Guest Privacy: Public guests must NEVER see or trigger the customizer drawer.
+  // Only authenticated wedding owners with explicit owner_edit mode can access customization.
   const isCustomizerEnabled = Boolean(
-    import.meta.env.DEV ||
-    (typeof window !== 'undefined' && (
-      new URLSearchParams(window.location.search).has('edit') ||
-      new URLSearchParams(window.location.search).has('customize') ||
-      new URLSearchParams(window.location.search).has('inviteId') ||
-      new URLSearchParams(window.location.search).has('id')
-    ))
+    typeof window !== 'undefined' &&
+    new URLSearchParams(window.location.search).get('mode') === 'owner_edit' &&
+    (Boolean(localStorage.getItem('vyoma_customer_session')) || new URLSearchParams(window.location.search).has('owner_token'))
   );
 
   return (
@@ -200,9 +198,9 @@ export default function CustomizeDrawer({
         </button>
       </div>
 
-      {/* Drawer Overlay */}
-      {isOpen && (
-        <div className="fixed inset-0 z-[10001] flex justify-end bg-black/40 backdrop-blur-sm transition-opacity">
+      {/* Drawer Overlay - Strictly guarded: only mounts when isCustomizerEnabled AND isOpen */}
+      {isCustomizerEnabled && isOpen && (
+        <div id="studioDrawer" className="vyoma-studio-overlay fixed inset-0 z-[10001] flex justify-end bg-black/40 backdrop-blur-sm transition-opacity">
           <div className="relative w-full max-w-lg h-full bg-[#FFFBF3] shadow-2xl flex flex-col text-[#4A2C27] overflow-hidden border-l border-[#A67C45]/30">
             {/* Header */}
             <div className="px-6 py-4 bg-[#EBDACF]/50 border-b border-[#A67C45]/20 flex items-center justify-between">

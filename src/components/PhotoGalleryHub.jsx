@@ -392,20 +392,30 @@ export default function PhotoGalleryHub({
   useEffect(() => {
     syncWithServer();
 
-    // Auto-refresh every 12 seconds so guest uploads appear live on all screens
-    const pollInterval = setInterval(syncWithServer, 12000);
+    // Zero-Cost Battery-Friendly Sync: refresh periodically only when page is active & visible
+    const pollInterval = setInterval(() => {
+      if (typeof document !== 'undefined' && !document.hidden) {
+        syncWithServer();
+      }
+    }, 60000);
 
-    // Refresh immediately when window regains focus
-    const onFocus = () => syncWithServer();
-    window.addEventListener('focus', onFocus);
+    // Refresh when user returns to the tab or unlocks phone
+    const handleVisibility = () => {
+      if (typeof document !== 'undefined' && !document.hidden) {
+        syncWithServer();
+      }
+    };
+    window.addEventListener('focus', handleVisibility);
+    document.addEventListener('visibilitychange', handleVisibility);
 
     return () => {
       clearInterval(pollInterval);
-      window.removeEventListener('focus', onFocus);
+      window.removeEventListener('focus', handleVisibility);
+      document.removeEventListener('visibilitychange', handleVisibility);
     };
   }, [syncWithServer]);
 
-  // Harmonious Golden Victory Chime Synthesis with Web Audio API + Haptic Vibration
+  // Harmonious Golden Victory Chime Synthesis with Web Audio API + Haptic Vibration (Leak-Proof)
   const playTeamChime = () => {
     try {
       const AudioCtx = window.AudioContext || window.webkitAudioContext;
@@ -424,6 +434,10 @@ export default function PhotoGalleryHub({
         osc.start(now + i * 0.07);
         osc.stop(now + i * 0.07 + 0.6);
       });
+      // Cleanly destroy AudioContext to prevent browser memory leaks
+      setTimeout(() => {
+        try { ctx.close(); } catch (e) { }
+      }, 1200);
     } catch (e) { }
     if (navigator.vibrate) {
       navigator.vibrate([80, 40, 140]);
@@ -2011,13 +2025,13 @@ export default function PhotoGalleryHub({
                         {
                           id: 'Reception',
                           title: 'Reception',
-                          sub: 'Sunday, 15 Nov · Evening',
+                          sub: 'Sunday, 29 Nov · 7:00 PM',
                           badge: 'Eve Party',
                         },
                         {
                           id: 'Dhara Muhurtham',
                           title: 'Dhara Muhurtham',
-                          sub: 'Monday, 16 Nov · Morning',
+                          sub: 'Monday, 30 Nov · 9:30 AM',
                           badge: 'Sacred Ritual',
                         },
                         {

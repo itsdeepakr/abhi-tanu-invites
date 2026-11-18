@@ -7,12 +7,17 @@ const VENUE_ADDRESS = "Panthar Palya, Nayandahalli, Mysore Road, Bengaluru, Karn
 const MAPS_APP_URL = "https://www.google.com/maps/search/?api=1&query=The+AMARA+Nandi+Link+Grounds+Panthar+Palya+Nayandahalli+Mysore+Road+Bengaluru+560039";
 const EMBED_MAP_SRC = "https://maps.google.com/maps?q=The+AMARA+Nandi+Link+Grounds+Nayandahalli+Mysore+Road+Bengaluru+560039&t=&z=15&ie=UTF8&iwloc=&output=embed";
 
-export default function VenueMapSection() {
+export default function VenueMapSection({ venue, details }) {
   const [copied, setCopied] = useState(false);
+
+  const venueName = venue?.name || details?.where?.split('\n')[0] || VENUE_NAME;
+  const venueAddress = venue?.address || details?.address || VENUE_ADDRESS;
+  const mapUrl = venue?.map_url || details?.map_url || MAPS_APP_URL;
+  const embedSrc = venue?.embed_map_src || (venueAddress ? `https://maps.google.com/maps?q=${encodeURIComponent(venueName + ' ' + venueAddress)}&t=&z=15&ie=UTF8&iwloc=&output=embed` : EMBED_MAP_SRC);
 
   const handleCopyAddress = async () => {
     try {
-      await navigator.clipboard.writeText(`${VENUE_NAME}, ${VENUE_ADDRESS}`);
+      await navigator.clipboard.writeText(`${venueName}, ${venueAddress}`);
       setCopied(true);
       setTimeout(() => setCopied(false), 2500);
     } catch (e) {
@@ -49,18 +54,18 @@ export default function VenueMapSection() {
           className="text-3xl sm:text-4xl md:text-5xl font-bold text-[#FFFDF8] tracking-wide drop-shadow-md"
           style={{ fontFamily: 'var(--fv-names, "Playfair Display"), Georgia, serif' }}
         >
-          {VENUE_NAME}
+          {venueName}
         </h2>
 
         {/* Subtitle clarifying ceremonies */}
         <p className="text-xs sm:text-sm text-[#FFE58F] font-serif font-medium mt-1.5 uppercase tracking-wider">
-          Venue for The Reception (Sunday, 29 Nov 2026) & Wedding Muhurtham (Monday, 30 Nov 2026)
+          Wedding Venue & Celebrations
         </p>
 
         {/* Address Card */}
         <div className="mt-4 max-w-2xl mx-auto p-4 rounded-2xl bg-black/35 border border-[#D4AF37]/40 shadow-inner">
           <p className="text-xs sm:text-sm text-[#FFFDF8]/90 font-serif leading-relaxed">
-            {VENUE_ADDRESS}
+            {venueAddress}
           </p>
         </div>
 
@@ -73,14 +78,14 @@ export default function VenueMapSection() {
           transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
         >
           <iframe
-            src={EMBED_MAP_SRC}
+            src={embedSrc}
             width="100%"
             height="420"
             style={{ border: 0 }}
             allowFullScreen=""
             loading="lazy"
             referrerPolicy="strict-origin-when-cross-origin"
-            title="The AMARA Nandi Link Grounds Location Map"
+            title={`${venueName} Location Map`}
             className="w-full block"
           />
         </motion.div>
@@ -89,7 +94,7 @@ export default function VenueMapSection() {
         <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
           {/* Direct Launch to Google Maps App for Turn-by-Turn GPS Directions */}
           <a
-            href={MAPS_APP_URL}
+            href={mapUrl}
             target="_blank"
             rel="noopener noreferrer"
             className="px-6 py-2.5 rounded-full text-xs sm:text-sm font-serif font-bold text-[#1E0812] bg-gradient-to-r from-[#FFFDF8] via-[#F5DE98] to-[#E6C364] hover:brightness-110 shadow-lg transition-transform active:scale-95 flex items-center gap-2 cursor-pointer border border-[#D4AF37]"

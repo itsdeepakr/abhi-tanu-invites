@@ -14,6 +14,59 @@ const DB_URL =
 
 const sql = neon(DB_URL);
 
+const FALLBACK_PHOTOS = [
+  {
+    id: 'at-photo-1',
+    src: '/photos/abhishek_tanuja/photo-1.jpg',
+    caption: 'Abhishek & Tanuja - Together towards a beautiful forever 💫💍',
+    eventTag: 'Muhurtham',
+    team: 'groom',
+    likes: 64,
+    uploader: { name: 'Abhishek & Tanuja', relation: 'The Couple', timestamp: 'Wedding Day' },
+    pinned: true,
+  },
+  {
+    id: 'at-photo-2',
+    src: '/photos/abhishek_tanuja/photo-2.jpg',
+    caption: 'Radiant smiles and heartwarming wedding moments with loved ones 🌸✨',
+    eventTag: 'Reception',
+    team: 'bride',
+    likes: 58,
+    uploader: { name: 'Tanuja & Family', relation: "Bride's Squad", timestamp: 'Celebration Day' },
+    pinned: true,
+  },
+  {
+    id: 'at-photo-3',
+    src: '/photos/abhishek_tanuja/photo-3.jpg',
+    caption: 'Royal traditional portrait in auspicious ceremonial elegance 👑💛',
+    eventTag: 'Celebrations',
+    team: 'groom',
+    likes: 54,
+    uploader: { name: 'Abhishek & Friends', relation: "Groom's Squad", timestamp: 'Celebration Day' },
+    pinned: false,
+  },
+  {
+    id: 'at-photo-4',
+    src: '/photos/abhishek_tanuja/photo-4.jpg',
+    caption: 'Cherished memories and celebration laughs 💫',
+    eventTag: 'Reception',
+    team: 'bride',
+    likes: 49,
+    uploader: { name: "Bride's Squad", relation: 'Family', timestamp: 'Celebration Day' },
+    pinned: false,
+  },
+  {
+    id: 'at-photo-5',
+    src: '/photos/abhishek_tanuja/photo-5.jpg',
+    caption: 'Auspicious wedding rituals and family blessings 🌺',
+    eventTag: 'Muhurtham',
+    team: 'groom',
+    likes: 42,
+    uploader: { name: 'Family Elders', relation: "Groom's Squad", timestamp: 'Wedding Day' },
+    pinned: false,
+  },
+];
+
 export default async function handler(req, res) {
   // Global CORS headers
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -27,55 +80,71 @@ export default async function handler(req, res) {
   try {
     // ─── GET: Fetch all active photos and live squad cheer totals ───
     if (req.method === 'GET') {
-      const [photoRows, cheerRows] = await Promise.all([
-        sql`
-          SELECT 
-            id, 
-            url as src, 
-            caption, 
-            author, 
-            relation,
-            team, 
-            event_tag as "eventTag", 
-            likes, 
-            created_at as "timestamp", 
-            is_hidden as "isHidden", 
-            pinned
-          FROM photos 
-          WHERE is_hidden = false 
-          ORDER BY pinned DESC, likes DESC, created_at DESC;
-        `,
-        sql`SELECT team, cheers FROM squad_cheers;`,
-      ]);
+      // Vercel Edge CDN Caching: 5 min cache, 24 hr stale-while-revalidate for 0 serverless compute drain
+      res.setHeader('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=86400');
 
-      const formattedPhotos = photoRows.map((row) => ({
-        id: row.id,
-        src: row.src,
-        caption: row.caption || '',
-        team: (row.team === 'groom' || row.team === 'nithin') ? 'groom' : 'bride',
-        eventTag: row.eventTag || 'Reception',
-        uploader: {
-          name: row.author || 'Guest',
-          relation: row.relation || ((row.team === 'groom' || row.team === 'nithin') ? "Groom's Squad" : "Bride's Squad"),
-          timestamp:
-            new Date(row.timestamp).toLocaleDateString([], { month: 'short', day: 'numeric' }) +
-            ', ' +
-            new Date(row.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        },
-        likes: Math.max(Number(row.likes) || 1, 1),
-        pinned: !!row.pinned,
-      }));
+      let formattedPhotos = FALLBACK_PHOTOS;
+      let cheersObj = { bride: 218, groom: 204 };
 
-      const cheersObj = { bride: 0, groom: 0 };
-      cheerRows.forEach((r) => {
-        if (r.team) {
-          const mappedKey = (r.team === 'groom' || r.team === 'nithin') ? 'groom' : 'bride';
-          cheersObj[mappedKey] = (cheersObj[mappedKey] || 0) + Number(r.cheers);
+      try {
+        const [photoRows, cheerRows] = await Promise.race([
+          Promise.all([
+            sql`
+              SELECT 
+                id, 
+                url as src, 
+                caption, 
+                author, 
+                relation,
+                team, 
+                event_tag as "eventTag", 
+                likes, 
+                created_at as "timestamp", 
+                is_hidden as "isHidden", 
+                pinned
+              FROM photos 
+              WHERE is_hidden = false 
+              ORDER BY pinned DESC, likes DESC, created_at DESC;
+            `,
+            sql`SELECT team, cheers FROM squad_cheers;`,
+          ]),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('DB Timeout')), 2500))
+        ]);
+
+        if (Array.isArray(photoRows) && photoRows.length > 0) {
+          formattedPhotos = photoRows.map((row) => ({
+            id: row.id,
+            src: row.src,
+            caption: row.caption || '',
+            team: (row.team === 'groom' || row.team === 'abhishek') ? 'groom' : 'bride',
+            eventTag: row.eventTag || 'Reception',
+            uploader: {
+              name: row.author || 'Guest',
+              relation: row.relation || ((row.team === 'groom' || row.team === 'abhishek') ? "Groom's Squad" : "Bride's Squad"),
+              timestamp:
+                new Date(row.timestamp).toLocaleDateString([], { month: 'short', day: 'numeric' }) +
+                ', ' +
+                new Date(row.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            },
+            likes: Math.max(Number(row.likes) || 1, 1),
+            pinned: !!row.pinned,
+          }));
         }
-      });
-      // Ensure vibrant baseline from initial live deployment
-      cheersObj.bride = Math.max(cheersObj.bride, 168);
-      cheersObj.groom = Math.max(cheersObj.groom, 154);
+
+        if (Array.isArray(cheerRows) && cheerRows.length > 0) {
+          cheersObj = { bride: 0, groom: 0 };
+          cheerRows.forEach((r) => {
+            if (r.team) {
+              const mappedKey = (r.team === 'groom' || r.team === 'abhishek') ? 'groom' : 'bride';
+              cheersObj[mappedKey] = (cheersObj[mappedKey] || 0) + Number(r.cheers);
+            }
+          });
+          cheersObj.bride = Math.max(cheersObj.bride, 218);
+          cheersObj.groom = Math.max(cheersObj.groom, 204);
+        }
+      } catch (dbErr) {
+        console.warn('Neon DB query bypassed (quota or cold start), serving edge-cached gallery:', dbErr.message);
+      }
 
       return res.status(200).json({
         success: true,

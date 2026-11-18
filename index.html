@@ -44,6 +44,38 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" />
     <link href="https://fonts.googleapis.com/css2?family=Great+Vibes&family=Cinzel:wght@400;500;600;700;800;900&family=Bodoni+Moda:opsz,wght@6..96,400..600&family=Allura&family=Dancing+Script:wght@400..700&family=Cormorant+Garamond:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,500;0,600;0,700;0,800;0,900;1,500;1,600;1,700&family=Tiro+Bangla&family=Tiro+Devanagari+Hindi&display=swap" rel="stylesheet" />
+
+    <!-- DPDPA 2023 Security & Guest Privacy: NEVER expose Customize button or Studio Drawer to public guests -->
+    <style>
+      #studioDrawer,
+      .vyoma-studio-overlay,
+      button[title="Customize invitation"],
+      button:has(svg.lucide-sparkles),
+      .fixed.bottom-5.left-5 button:first-child:has(span.font-semibold),
+      aside[aria-label*="Customize"],
+      div[role="dialog"]:has(.fv-studio),
+      .fv-studio,
+      div.fixed.inset-0.z-\[10001\] {
+        display: none !important;
+        pointer-events: none !important;
+        visibility: hidden !important;
+        opacity: 0 !important;
+      }
+
+      /* Only display if verified authenticated owner session is active and requested */
+      body.vyoma-owner-active #studioDrawer,
+      body.vyoma-owner-active .vyoma-studio-overlay,
+      body.vyoma-owner-active div.fixed.inset-0.z-\[10001\],
+      body.vyoma-owner-active button[title="Customize invitation"],
+      body.vyoma-owner-active button:has(svg.lucide-sparkles),
+      body.vyoma-owner-active .fv-studio,
+      body.vyoma-owner-active .fixed.bottom-5.left-5 button:first-child:has(span.font-semibold) {
+        display: flex !important;
+        pointer-events: auto !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+      }
+    </style>
   </head>
   <body class="bg-[#EBDACF] text-[#4A2C27] antialiased selection:bg-[#A67C45]/20 selection:text-[#4A2C27]">
     <div id="root"></div>

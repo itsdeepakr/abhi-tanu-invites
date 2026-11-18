@@ -63,6 +63,40 @@ export default function InvitationCard({
 
   const mapLink = mapsUrl(details.map_url, inv.venue, details.address, inv.city);
 
+  // Extract twin event details dynamically from schema.events or schema.details with authentic fallbacks
+  const eventItems = schema.events?.items || [];
+  const recItem = eventItems.find((e) => /reception|ಆರತಕ್ಷತೆ/i.test(e.name || '')) || eventItems[0];
+  const muhItem = eventItems.find((e) => /muhurtham|ವಿವಾಹ|wedding|marriage/i.test(e.name || '')) || eventItems[1];
+
+  const parseEventDisplay = (item, defaultBadge, defaultDay, defaultDate, defaultTime) => {
+    if (!item) {
+      return { badge: defaultBadge, day: defaultDay, date: defaultDate, time: defaultTime };
+    }
+    const badge = (item.name?.split('/')[0]?.trim() || defaultBadge).toUpperCase();
+    let day = defaultDay;
+    let date = defaultDate;
+    if (item.date) {
+      const parts = item.date.split(',');
+      if (parts.length > 1) {
+        day = parts[0].trim().toUpperCase();
+        const rawDate = parts[1].trim().toUpperCase();
+        date = rawDate
+          .replace(/\bNOVEMBER\b/i, 'NOV')
+          .replace(/\bDECEMBER\b/i, 'DEC')
+          .replace(/\bJANUARY\b/i, 'JAN')
+          .replace(/\bFEBRUARY\b/i, 'FEB')
+          .replace(/\bMARCH\b/i, 'MAR');
+      } else {
+        date = item.date.toUpperCase();
+      }
+    }
+    const time = (item.time || defaultTime).toUpperCase();
+    return { badge, day, date, time };
+  };
+
+  const recDisplay = parseEventDisplay(recItem, 'RECEPTION', 'SUNDAY', '29 NOV 2026', '7:00 PM ONWARDS');
+  const muhDisplay = parseEventDisplay(muhItem, 'MUHURTHAM', 'MONDAY', '30 NOV 2026', '9:30 AM TO 10:30 AM');
+
   // Sizing formula from ScrollVite
   const cardW = Math.max(0, Math.min(0.8 * width, 420, ((height - 96) * 5) / 7));
   const cardH = 1.4 * cardW;
@@ -225,25 +259,25 @@ export default function InvitationCard({
 
                 <hr className="fv-c-rule" />
 
-                {/* Dual Event Royal Showcase: BOTH Reception (15th) & Muhurtham (16th) Prominently Highlighted Side-by-Side */}
+                {/* Dual Event Royal Showcase: BOTH Reception & Muhurtham Prominently Highlighted Side-by-Side */}
                 <div className="fv-c-events-twin">
-                  {/* Reception Column (Sunday, 15 Nov) */}
+                  {/* Reception Column */}
                   <div className="fv-c-twin-card fv-c-twin-card--reception">
-                    <span className="fv-c-twin-badge">RECEPTION</span>
-                    <p className="fv-c-twin-day">SUNDAY</p>
-                    <p className="fv-c-twin-date">15 NOV 2026</p>
-                    <p className="fv-c-twin-time">6:30 PM ONWARDS</p>
+                    <span className="fv-c-twin-badge">{recDisplay.badge}</span>
+                    <p className="fv-c-twin-day">{recDisplay.day}</p>
+                    <p className="fv-c-twin-date">{recDisplay.date}</p>
+                    <p className="fv-c-twin-time">{recDisplay.time}</p>
                   </div>
 
                   {/* Elegant Golden Hairline Separator */}
                   <div className="fv-c-twin-divider" aria-hidden="true" />
 
-                  {/* Muhurtham Column (Monday, 16 Nov) */}
+                  {/* Muhurtham Column */}
                   <div className="fv-c-twin-card fv-c-twin-card--muhurtham">
-                    <span className="fv-c-twin-badge">MUHURTHAM</span>
-                    <p className="fv-c-twin-day">MONDAY</p>
-                    <p className="fv-c-twin-date">16 NOV 2026</p>
-                    <p className="fv-c-twin-time">9:45 – 10:45 AM</p>
+                    <span className="fv-c-twin-badge">{muhDisplay.badge}</span>
+                    <p className="fv-c-twin-day">{muhDisplay.day}</p>
+                    <p className="fv-c-twin-date">{muhDisplay.date}</p>
+                    <p className="fv-c-twin-time">{muhDisplay.time}</p>
                   </div>
                 </div>
 

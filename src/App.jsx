@@ -47,8 +47,9 @@ export default function App() {
   const [phase, setPhase] = useState(() => {
     try {
       const params = new URLSearchParams(window.location.search);
-      if (params.get('edit') === '1' || params.get('customize') === '1') {
-        return 'open'; // skip envelope intro directly to canvas if in edit/customizer mode
+      const isOwnerEdit = params.get('mode') === 'owner_edit' && (Boolean(localStorage.getItem('vyoma_customer_session')) || params.has('owner_token'));
+      if (isOwnerEdit && (params.get('edit') === '1' || params.get('customize') === '1')) {
+        return 'open'; // skip envelope intro directly to canvas only for authenticated owner
       }
     } catch {}
     return 'sealed';
@@ -56,7 +57,8 @@ export default function App() {
   const [drawerOpen, setDrawerOpen] = useState(() => {
     try {
       const params = new URLSearchParams(window.location.search);
-      return params.get('edit') === '1' || params.get('customize') === '1';
+      const isOwnerEdit = params.get('mode') === 'owner_edit' && (Boolean(localStorage.getItem('vyoma_customer_session')) || params.has('owner_token'));
+      return isOwnerEdit && (params.get('edit') === '1' || params.get('customize') === '1');
     } catch {}
     return false;
   });
@@ -64,36 +66,60 @@ export default function App() {
   const [musicPlaying, setMusicPlaying] = useState(false);
 
   const scrollContainerRef = useRef(null);
-  const inviteId = typeof window !== 'undefined' ? (new URLSearchParams(window.location.search).get('inviteId') || new URLSearchParams(window.location.search).get('id')) : null;
+  
+  // Resolve client invitation ID or slug from query or path
+  const resolveInviteId = useCallback(() => {
+    if (typeof window === 'undefined') return null;
+    const params = new URLSearchParams(window.location.search);
+    const q = params.get('inviteId') || params.get('id');
+    if (q) return q;
 
-  // Dynamic API Hydration from ?inviteId= or ?id=
+    const path = window.location.pathname.replace(/^\/+|\/+$/g, '');
+    if (!path) return null;
+    const segs = path.split('/');
+    if ((segs[0] === 'invite' || segs[0] === 'w') && segs.length > 1) {
+      return segs[1];
+    }
+    const reserved = ['invite', 'internal', 'api', 'assets', 'uploads', 'photos', 'audio', 'templates', 'fonts', 'index.html'];
+    if (segs.length === 1 && !reserved.includes(segs[0])) {
+      return segs[0];
+    }
+    return null;
+  }, []);
+
+  const inviteId = typeof window !== 'undefined' ? resolveInviteId() : null;
+
+  // Dynamic API Hydration from ?inviteId=, ?id=, or vanity path
   useEffect(() => {
     try {
-      const params = new URLSearchParams(window.location.search);
-      const inviteId = params.get('inviteId') || params.get('id');
-      if (inviteId) {
-        fetch(`/api/invitations/${inviteId}`)
-          .then(res => res.json())
-          .then(apiData => {
+      const targetId = resolveInviteId();
+      if (targetId) {
+        fetch(`/api/invitations/${encodeURIComponent(targetId)}`)
+          .then(res => {
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            return res.json();
+          })
+          .then(rawResp => {
+            const apiData = (rawResp && rawResp.data && rawResp.data.hero) ? rawResp.data : rawResp;
             if (apiData && apiData.hero) {
               const mapped = {
                 ...DEFAULT_WEDDING_DATA,
                 theme: {
                   ...DEFAULT_WEDDING_DATA.theme,
                   ...(apiData.theme || {}),
-                  id: apiData.theme?.id || 'floral-luxe'
+                  id: apiData.theme?.id || 'royal-heritage'
                 },
                 hero: {
                   ...DEFAULT_WEDDING_DATA.hero,
                   bride_name: apiData.hero.bride_name,
                   groom_name: apiData.hero.groom_name,
-                  wedding_date: apiData.hero.wedding_date || apiData.countdown?.wedding_date,
+                  wedding_date: apiData.hero.wedding_date || apiData.countdown?.wedding_date || '2026-11-30',
                   city: apiData.hero.city,
                   venue: apiData.hero.venue
                 },
                 countdown: {
-                  wedding_date: apiData.countdown?.wedding_date || apiData.hero.wedding_date || '2027-02-18',
-                  start_time: apiData.countdown?.start_time || '09:45'
+                  wedding_date: apiData.countdown?.wedding_date || apiData.hero.wedding_date || '2026-11-30',
+                  start_time: apiData.countdown?.start_time || '09:30'
                 },
                 envelope: {
                   monogram: apiData.monogram?.text || apiData.envelope?.monogram || 'V',
@@ -105,9 +131,10 @@ export default function App() {
                   bride_parents: apiData.invitation?.bride_parents || '',
                   groom_full_name: apiData.invitation?.groom_full_name || apiData.hero.groom_name,
                   groom_parents: apiData.invitation?.groom_parents || '',
+                  message: apiData.invitation?.message || DEFAULT_WEDDING_DATA.invitation.message,
                   venue: apiData.invitation?.venue || apiData.venue?.name,
                   city: apiData.invitation?.city || apiData.hero.city,
-                  time: apiData.invitation?.time || '9:45 AM onwards',
+                  time: apiData.invitation?.time || DEFAULT_WEDDING_DATA.invitation.time || '9:30 AM to 10:30 AM',
                   note: apiData.invitation?.note || ''
                 },
                 events: apiData.events?.items ? apiData.events : {
@@ -116,9 +143,10 @@ export default function App() {
                 },
                 details: {
                   ...DEFAULT_WEDDING_DATA.details,
-                  where: apiData.venue?.name ? `${apiData.venue.name}\n${apiData.venue.address || ''}` : DEFAULT_WEDDING_DATA.details.where,
-                  address: apiData.venue?.address || DEFAULT_WEDDING_DATA.details.address,
-                  map_url: apiData.venue?.map_url || '#venue-map'
+                  ...(apiData.details || {}),
+                  where: apiData.details?.where || (apiData.venue?.name ? `${apiData.venue.name}\n${apiData.venue.address || ''}` : DEFAULT_WEDDING_DATA.details.where),
+                  address: apiData.details?.address || apiData.venue?.address || DEFAULT_WEDDING_DATA.details.address,
+                  map_url: apiData.details?.map_url || apiData.venue?.map_url || '#venue-map'
                 },
                 venue: apiData.venue || DEFAULT_WEDDING_DATA.venue,
                 photos: Array.isArray(apiData.photos)
@@ -133,7 +161,9 @@ export default function App() {
                   message: apiData.invitation?.note || apiData.notes?.loveStory || apiData.notes?.welcomeMessage || "We can't wait to celebrate with you.",
                   signoff: 'With love,',
                   photo: null,
-                }
+                },
+                blessings: apiData.blessings || DEFAULT_WEDDING_DATA.blessings,
+                audio_url: apiData.audio_url || apiData.music?.url || DEFAULT_WEDDING_DATA.audio_url,
               };
               if (apiData.hero?.bride_name && apiData.hero?.groom_name) {
                 document.title = `${apiData.hero.bride_name} & ${apiData.hero.groom_name} — Wedding Celebration | VYOMA`;
@@ -518,7 +548,7 @@ export default function App() {
                 <EventsSection events={data.events} />
 
                 {/* Embedded Venue Map & Driving Directions for Reception & Muhurtham */}
-                <VenueMapSection />
+                <VenueMapSection venue={data.venue} details={data.details} />
 
                 {/* Live Wedding Countdown */}
                 <CountdownSection

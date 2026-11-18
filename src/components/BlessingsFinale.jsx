@@ -11,6 +11,13 @@ export default function BlessingsFinale({
   onReplay,
   envelopePath = '/templates/forever/envelope/',
 }) {
+  const eventItems = schema.events?.items || [];
+  const firstEvDate = eventItems[0]?.date ? (eventItems[0].date.includes(',') ? eventItems[0].date.split(',')[1].trim() : eventItems[0].date) : '29 November 2026';
+  const secondEvDate = eventItems[1]?.date ? (eventItems[1].date.includes(',') ? eventItems[1].date.split(',')[1].trim() : eventItems[1].date) : '30 November 2026';
+  const city = schema.hero?.city || 'Bengaluru';
+  const finaleDateText = eventItems.length >= 2
+    ? `${firstEvDate.replace(/\s*\d{4}$/, '')} & ${secondEvDate} · ${city}`
+    : `29 – 30 November 2026 · ${city}`;
   const sealRef = useRef(null);
   const namesRef = useRef(null);
   const [inView, setInView] = useState(false);
@@ -215,7 +222,7 @@ export default function BlessingsFinale({
             </motion.div>
           </AnimatePresence>
 
-          <p className="fv-fin-date">15 – 16 November 2026 · Bengaluru</p>
+          <p className="fv-fin-date">{finaleDateText}</p>
 
           <div className="mt-6">
             <button

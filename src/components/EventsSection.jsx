@@ -1,7 +1,7 @@
 import React, { useRef, useLayoutEffect } from 'react';
 import { motion } from 'framer-motion';
 import { MapPin, CalendarPlus } from 'lucide-react';
-import { mapsUrl, calendarUrl, EVENT_TONES } from '../config/defaultWedding';
+import { mapsUrl, calendarUrl, EVENT_TONES, parseIsoDate } from '../config/defaultWedding';
 import { transitionVariants } from './TornPhoto';
 import { useCouple } from '../context/CoupleContext';
 
@@ -90,10 +90,23 @@ export default function EventsSection({ events = {} }) {
             const motif = getEventMotif(item);
             const isLightFoil = LIGHT_FOIL_TONES.includes(tone);
 
-            // Construct specific Google Calendar invite
-            let eventDate = new Date(2026, 10, 16);
-            if (item.date && /15/i.test(item.date)) {
-              eventDate = new Date(2026, 10, 15);
+            // Construct specific Google Calendar invite from event item date
+            let eventDate = new Date(2026, 10, 30);
+            if (item.date) {
+              const parsed = parseIsoDate(item.date);
+              if (parsed) {
+                eventDate = parsed;
+              } else if (/29/i.test(item.date)) {
+                eventDate = new Date(2026, 10, 29);
+              } else if (/30/i.test(item.date)) {
+                eventDate = new Date(2026, 10, 30);
+              } else if (/13.*dec/i.test(item.date)) {
+                eventDate = new Date(2026, 11, 13);
+              } else if (/15/i.test(item.date)) {
+                eventDate = new Date(2026, 10, 15);
+              } else if (/16/i.test(item.date)) {
+                eventDate = new Date(2026, 10, 16);
+              }
             }
             const coupleName = couple?.coupleShortTitle || couple?.coupleTitle || 'Wedding Celebration';
             const calLink = calendarUrl(
